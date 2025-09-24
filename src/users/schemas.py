@@ -58,8 +58,8 @@ class User(BaseModel):
 
 class UserResponse(BaseModel):
     user_id: int
-    name: str
     email: EmailStr
+    name: str
     phone_number: str
-    bio: str | None = None
     height: float
+    bio: str | None = None

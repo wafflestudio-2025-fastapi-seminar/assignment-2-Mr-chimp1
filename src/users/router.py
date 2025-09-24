@@ -23,12 +23,11 @@ ALGORITHM = "HS256"
 
 user_router = APIRouter(prefix="/users", tags=["users"])
 
-@user_router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@user_router.post("/", status_code=status.HTTP_201_CREATED)
 def create_user(request: CreateUserRequest) -> UserResponse:
     try:
         user_id = len(user_db) + 1
         
-        # User 객체 생성 및 저장
         user = User(
             user_id=user_id,
             email=request.email,
@@ -41,7 +40,14 @@ def create_user(request: CreateUserRequest) -> UserResponse:
         user_db.append(user)
         
         # 응답 변환 및 반환
-        return UserResponse.model_validate(user)
+        return UserResponse(
+            user_id=user.user_id,
+            email=user.email,
+            name=user.name,
+            phone_number=user.phone_number,
+            height=user.height,
+            bio=user.bio)
+    
     except (MissingValueException, InvalidPasswordException,
             InvalidPhoneNumberException, BioTooLongException) as e:
         # 422 Unprocessable Entity 에러
