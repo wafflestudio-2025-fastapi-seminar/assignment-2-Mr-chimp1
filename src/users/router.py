@@ -25,32 +25,29 @@ user_router = APIRouter(prefix="/users", tags=["users"])
 
 @user_router.post("/", status_code=status.HTTP_201_CREATED)
 def create_user(request: CreateUserRequest) -> UserResponse:
-    try:
-        user_id = len(user_db) + 1
-        
-        user = User(
-            user_id=user_id,
-            email=request.email,
-            hashed_password=pwd_context.hash(request.password),
-            name=request.name,
-            phone_number=request.phone_number,
-            height=request.height,
-            bio=request.bio
-        )
-        user_db.append(user)
-        
-        # 응답 변환 및 반환
-        return UserResponse(
-            user_id=user.user_id,
-            email=user.email,
-            name=user.name,
-            phone_number=user.phone_number,
-            height=user.height,
-            bio=user.bio)
     
-    except Exception as e:
-        print(f"Error in create_user: {str(e)}")
-        raise
+    user_id = len(user_db) + 1
+    
+    user = User(
+        user_id=user_id,
+        email=request.email,
+        hashed_password=pwd_context.hash(request.password),
+        name=request.name,
+        phone_number=request.phone_number,
+        height=request.height,
+        bio=request.bio
+    )
+    user_db.append(user)
+    
+    # 응답 변환 및 반환
+    return UserResponse(
+        user_id=user.user_id,
+        email=user.email,
+        name=user.name,
+        phone_number=user.phone_number,
+        height=user.height,
+        bio=user.bio)
+
 
 
 def get_user_by_id(user_id: int) -> User | None:
