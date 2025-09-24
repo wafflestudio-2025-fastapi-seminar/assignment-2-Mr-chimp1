@@ -1,124 +1,184 @@
-from fastapi import APIRouter
-from fastapi import Depends, Cookie, Response, status
-##
+from typing import Optional
+from fastapi import APIRouter, Header, status, Response, Cookie
 import jwt
 import secrets
-from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
-from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, timedelta, timezone
-from src.auth.schemas import TokenData, ResponseToken, AuthorizationHeader, SessionData, Cookies
-from src.users.errors import InvalidAccount, InvalidToken
-# from starlette.middleware.sessions import SessionMiddleware
 
-from src.common.database import blocked_token_db, session_db, user_db
+from src.auth.schemas import TokenData, ResponseToken, SessionData, Cookies
+from src.users.errors import (
+    InvalidAccount, 
+    InvalidToken, 
+    BadAuthorizationHeader,
+    UnauthenticatedExeption
+)
+from src.common.database import blocked_token_db, user_db, session_db
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
+# JWT 설정
 SECRET_KEY = "a2537d439a58e4b9f34e5e91fefd657b0044e1c2c4de5cf7c5fcea4d47c1a5bd"
 ALGORITHM = "HS256"
 
-SHORT_SESSION_LIFESPAN = 15
-LONG_SESSION_LIFESPAN = 24 * 60
+# 토큰 만료 시간 설정
+SHORT_SESSION_LIFESPAN = 15  # Access Token 만료 시간 (분)
+LONG_SESSION_LIFESPAN = 24 * 60  # Refresh Token 만료 시간 (분)
 
-pwd_context = CryptContext(schemes=['bcrypt'], deprecated = "auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def create_token(data: dict, expires_delta: timedelta | None = None):
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + expires_delta
-
-    to_encode.update({'exp': expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm= ALGORITHM)
-    return encoded_jwt
-
-def get_user(user_db, email):
-    for user_info in user_db:
-        if user_info.email == email:
-            return user_info
-        return None
-        
-
-def varify_password(plain_password, hashed_password):
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """비밀번호 검증"""
     return pwd_context.verify(plain_password, hashed_password)
 
-def get_hashed_password(password):
-    return pwd_context.hash(password)
+def get_token_payload(token: str) -> dict:
+    """토큰 검증 및 payload 반환"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise InvalidToken("Token has expired")
+    except jwt.InvalidTokenError:
+        raise InvalidToken("Invalid token")
 
-def authenticate_user(user_db, email: str, password: str):
-    user_info = get_user(user_db, email)
-    if not user_info:
-        return False
-    if not varify_password(password, user_info.hashed_password):
-        return False
-    return user_info
+def authenticate_user(email: str, password: str):
+    """사용자 인증"""
+    user = user_db.get(email)
+    if not user or not verify_password(password, user['hashed_password']):
+        raise InvalidAccount()
+    return user
 
+def create_token(data: dict, expires_delta: timedelta) -> str:
+    """JWT 토큰 생성"""
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
+def get_authorization_token(authorization: str) -> str:
+    """Authorization 헤더에서 토큰 추출"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise BadAuthorizationHeader()
+    return authorization.split(" ")[1]
 
-@auth_router.post("/token")
-def token_login(form_data: TokenData) -> ResponseToken:
-    user_info = authenticate_user(user_db, form_data.email, form_data.password)
+def verify_and_get_payload(authorization: Optional[str] = Header(None)) -> TokenData:
+    """토큰 검증 및 TokenData 반환"""
+    if not authorization:
+        raise UnauthenticatedExeption()
     
-    if not user_info:
-        raise InvalidAccount
+    token = get_authorization_token(authorization)
     
-    access_token = create_token(data = {'sub':user_info.user_id}, expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN))
-    refresh_token = create_token(data = {'sub':user_info.user_id}, expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN))
-
-    return ResponseToken(access_token=access_token, refresh_token= refresh_token)
-
-
-@auth_router.post("/token/refresh")
-def refresh(header: AuthorizationHeader)->ResponseToken:
-    refresh_token = header.Authorization.split()[1]
-    for blocked in blocked_token_db:
-        if refresh_token == blocked.keys():
-            raise InvalidToken
+    # 블랙리스트 체크
+    if token in blocked_token_db:
+        raise InvalidToken("Token has been invalidated")
         
-    decoded = jwt.decode(refresh_token)
-    old_token = {refresh_token:decoded.exp}
-    blocked_token_db.append(old_token)
+    payload = get_token_payload(token)
+    return TokenData(sub=payload["sub"], exp=payload["exp"])
 
-    new_access_token = create_token(data = {'sub':decoded.sub}, expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN))
-    new_refresh_token = create_token(data = {'sub':decoded.sub}, expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN))
+@auth_router.post("/token", response_model=ResponseToken)
+def login_for_token(data: TokenData):
+    """토큰 발급 엔드포인트"""
+    user = authenticate_user(data.email, data.password)
+    
+    # access token 생성 (15분)
+    access_token = create_token(
+        data={"sub": user["email"]},
+        expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
+    )
+    
+    # refresh token 생성 (24시간)
+    refresh_token = create_token(
+        data={"sub": user["email"]},
+        expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
+    )
+    
+    return ResponseToken(
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
 
-    return ResponseToken(access_token=new_access_token, refresh_token= new_refresh_token)
-
-
-
-@auth_router.delete("/token")
-def delete_token(header: AuthorizationHeader):
-    refresh_token = header.Authorization.split()[1]
-    for blocked in blocked_token_db:
-        if refresh_token == blocked.keys():
-            raise InvalidToken
+@auth_router.post("/token/refresh", response_model=ResponseToken)
+def refresh_token(authorization: Optional[str] = Header(None)):
+    """토큰 갱신 엔드포인트"""
+    if not authorization:
+        raise UnauthenticatedExeption()
+    
+    token = get_authorization_token(authorization)
+    
+    # 블랙리스트 체크
+    if token in blocked_token_db:
+        raise InvalidToken("Token has been invalidated")
+    
+    # 토큰 검증
+    payload = get_token_payload(token)
+    user_email = payload.get("sub")
+    if not user_email:
+        raise InvalidToken("Invalid token payload")
         
-    decoded = jwt.decode(refresh_token)
-    old_token = {refresh_token:decoded.exp}
-    blocked_token_db.append(old_token)
+    # 기존 refresh token을 블랙리스트에 추가
+    blocked_token_db[token] = payload["exp"]
+    
+    # 새로운 토큰 쌍 생성
+    access_token = create_token(
+        data={"sub": user_email},
+        expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
+    )
+    
+    refresh_token = create_token(
+        data={"sub": user_email},
+        expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
+    )
+    
+    return ResponseToken(
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
 
-    return
+@auth_router.delete("/token", status_code=status.HTTP_204_NO_CONTENT)
+def logout(authorization: Optional[str] = Header(None)):
+    """로그아웃 엔드포인트"""
+    if not authorization:
+        raise UnauthenticatedExeption()
+    
+    token = get_authorization_token(authorization)
+    payload = get_token_payload(token)
+    
+    # 토큰을 블랙리스트에 추가
+    blocked_token_db[token] = payload["exp"]
+    
+    return None
 
 @auth_router.post("/session")
 def session_login(response: Response, form_data: SessionData):
-    user_info = authenticate_user(user_db, form_data.email, form_data.password)
+    """세션 로그인 엔드포인트"""
+    # 사용자 검증
+    user = authenticate_user(form_data.email, form_data.password)
     
-    if not user_info:
-        raise InvalidAccount
-    ## create session id
+    # 세션 ID 생성
     session_id = secrets.token_hex(32)
-    session_db.session_id = user_info.user_id
-
+    
+    # 세션 저장
+    session_db[session_id] = user["email"]
+    
+    # 쿠키 설정
     response.set_cookie(
         key="sid",
-        value = session_id,
-        max_age = LONG_SESSION_LIFESPAN,
+        value=session_id,
+        max_age=LONG_SESSION_LIFESPAN * 60,  # 분을 초로 변환
+        httponly=True,
+        samesite="lax"  # CSRF 보호
     )
-    return
+    
+    return {}
 
-@auth_router.delete("/session", status_code= status.HTTP_204_NO_CONTENT)
-def delete_cookie(response: Response, cookies: Cookies = Cookie()):
-    sid = cookies.sid
-    if sid:
+@auth_router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)
+def delete_session(response: Response, sid: Optional[str] = Cookie(None)):
+    """세션 로그아웃 엔드포인트"""
+    # 쿠키 만료
+    response.delete_cookie(key="sid")
+    
+    # 세션이 존재하면 제거
+    if sid and sid in session_db:
         session_db.pop(sid)
-        response.delete_cookie(key = "sid")
-    return
+    
+    return None
