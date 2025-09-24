@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import APIRouter, Header, Cookie, status, HTTPException
 import jwt
 from src.auth.router import pwd_context
-
+import datetime
 from src.users.schemas import CreateUserRequest, UserResponse, User
 from src.common.database import blocked_token_db, session_db, user_db
 from src.users.errors import (
@@ -81,7 +81,12 @@ def get_user_from_session(sid: str) -> User:
     if sid not in session_db:
         raise InvalidSession()
     
-    user_id = int(session_db[sid])
+    user_id, expiry_time = session_db[sid]
+
+    if expiry_time < datetime.now(datetime.timezone.utc):
+        session_db.pop(sid)
+        raise InvalidSession()
+    
     user = get_user_by_id(user_id)
     if not user:
         raise InvalidSession()
