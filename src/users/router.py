@@ -72,11 +72,12 @@ def verify_token(token: str) -> int:
 def get_user_from_token(authorization: str) -> User:
     if not authorization:
         raise UnauthenticatedExeption()
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise BadAuthorizationHeader()
     
-    user_id = verify_token(parts[1])
+    if not authorization.startswith("Bearer "):
+        raise BadAuthorizationHeader()
+    token = authorization.split(" ")[1]
+
+    user_id = verify_token(token)
     user = get_user_by_id(user_id)
     if not user:
         raise InvalidToken()
