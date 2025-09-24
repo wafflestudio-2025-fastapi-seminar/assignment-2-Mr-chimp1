@@ -14,7 +14,7 @@ class CreateUserRequest(BaseModel):
     bio: str | None = None
     height: float
 
-    @field_validator('name', 'email', 'password', 'phone_number', 'height')
+    @field_validator('name', 'email', 'password', 'phone_number', 'height', mode='before')
     def check_missing(cls, v):
         if v is None:
             raise MissingValueException()
