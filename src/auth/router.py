@@ -99,28 +99,22 @@ def make_refresh_token(authorization: Optional[str] = Header(None)) -> ResponseT
     print(token)
 
     try:
-        # Verify this is a valid JWT token
         payload = get_token_payload(token)
         
-        # Verify required claims exist
         user_id = payload.get("sub")
         expiry = payload.get("exp")
         if not user_id or not expiry:
             raise InvalidToken()
         
-        # Check if token is already blocked
         if token in blocked_token_db:
             raise InvalidToken()
         
-        # Verify token expiration
         current_time = datetime.now(timezone.utc).timestamp()
         if expiry < current_time:
             raise InvalidToken()
             
-        # Block the old refresh token
         blocked_token_db[token] = expiry
 
-        # Generate new tokens
         access_token = create_token(
             data={"sub": user_id},
             expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
