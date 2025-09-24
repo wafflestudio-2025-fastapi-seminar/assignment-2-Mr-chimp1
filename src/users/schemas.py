@@ -7,16 +7,16 @@ from src.users.errors import MissingValueException, InvalidPasswordException, Em
 from src.common.database import user_db
 
 class CreateUserRequest(BaseModel):
-    name: str
-    email: EmailStr
-    password: str
-    phone_number: str
+    name: str | None = None
+    email: EmailStr | None = None
+    password: str | None = None
+    phone_number: str | None = None
     bio: str | None = None
-    height: float
+    height: float | None = None
 
-    @field_validator('name', 'email', 'password', 'phone_number', 'height', mode='before')
-    def check_missing(cls, v):
-        if v is None:
+    @field_validator('*', mode='before')
+    def check_missing(cls, v, info):
+        if info.field_name != 'bio' and v is None:
             raise MissingValueException()
         return v
 
