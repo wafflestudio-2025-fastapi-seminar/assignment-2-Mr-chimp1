@@ -42,9 +42,9 @@ def get_token_payload(token: str) -> dict:
 def authenticate_user(email: str, password: str):
     # 이메일로 사용자 조회
     for user in user_db:
-        if user["email"] == email:
+        if user.email == email:
             # 비밀번호 검증
-            if verify_password(password, user["hashed_password"]):
+            if verify_password(password, user.hashed_password):
                 return user
     raise InvalidAccount()
 
@@ -80,13 +80,13 @@ def login_for_token(data: TokenData):
         
         # access token
         access_token = create_token(
-            data={"sub": str(user["user_id"])},
+            data={"sub": str(user.user_id)},
             expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
         )
         
         # refresh token
         refresh_token = create_token(
-            data={"sub": str(user["user_id"])},
+            data={"sub": str(user.user_id)},
             expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
         )
         
@@ -157,7 +157,7 @@ def session_login(response: Response, form_data: SessionData):
         
         session_id = secrets.token_hex(32)
         
-        session_db[session_id] = str(user["user_id"])
+        session_db[session_id] = str(user.user_id)
 
         response.set_cookie(
             key="sid",
