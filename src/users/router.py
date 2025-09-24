@@ -48,25 +48,6 @@ def create_user(request: CreateUserRequest) -> UserResponse:
             height=user.height,
             bio=user.bio)
     
-    except (MissingValueException, InvalidPasswordException,
-            InvalidPhoneNumberException, BioTooLongException) as e:
-        # 422 Unprocessable Entity 에러
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error_code": e.error_code,
-                "error_msg": e.error_msg
-            }
-        ) from e
-    except EmailAlreadyExists as e:
-        # 409 Conflict 에러
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "error_code": e.error_code,
-                "error_msg": e.error_msg
-            }
-        ) from e
     except Exception as e:
         print(f"Error in create_user: {str(e)}")
         raise
