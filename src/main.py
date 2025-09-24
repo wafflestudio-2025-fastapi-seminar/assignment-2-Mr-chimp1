@@ -8,10 +8,6 @@ app = FastAPI()
 
 app.include_router(api_router)
 
-@app.exception_handler(RequestValidationError)
-def handle_request_validation_error(request, exc):
-    pass
-
 @app.get("/health")
 def health_check():
     # 서버 정상 배포 여부를 확인하기 위한 엔드포인트입니다.
