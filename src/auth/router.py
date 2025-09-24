@@ -43,10 +43,13 @@ def get_token_payload(token: str) -> dict:
 
 def authenticate_user(email: str, password: str):
     """사용자 인증"""
-    user = user_db.get(email)
-    if not user or not verify_password(password, user['hashed_password']):
-        raise InvalidAccount()
-    return user
+    # 이메일로 사용자 찾기
+    for user in user_db:
+        if user["email"] == email:
+            # 비밀번호 검증
+            if verify_password(password, user["hashed_password"]):
+                return user
+    raise InvalidAccount()
 
 def create_token(data: dict, expires_delta: timedelta) -> str:
     """JWT 토큰 생성"""
@@ -76,64 +79,77 @@ def verify_and_get_payload(authorization: Optional[str] = Header(None)) -> Token
     payload = get_token_payload(token)
     return TokenData(sub=payload["sub"], exp=payload["exp"])
 
-@auth_router.post("/token", response_model=ResponseToken, status_code=status.HTTP_201_CREATED)
+@auth_router.post("/token", response_model=ResponseToken, status_code=status.HTTP_200_OK)
 def login_for_token(data: TokenData):
     """토큰 발급 엔드포인트"""
-    user = authenticate_user(data.email, data.password)
-    
-    # access token 생성 (15분)
-    access_token = create_token(
-        data={"sub": str(user["user_id"])},
-        expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
-    )
-    
-    # refresh token 생성 (24시간)
-    refresh_token = create_token(
-        data={"sub": str(user["user_id"])},
-        expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
-    )
-    
-    return ResponseToken(
-        access_token=access_token,
-        refresh_token=refresh_token
-    )
+    try:
+        user = authenticate_user(data.email, data.password)
+        
+        # access token 생성 (15분)
+        access_token = create_token(
+            data={"sub": str(user["user_id"])},
+            expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
+        )
+        
+        # refresh token 생성 (24시간)
+        refresh_token = create_token(
+            data={"sub": str(user["user_id"])},
+            expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
+        )
+        
+        return ResponseToken(
+            access_token=access_token,
+            refresh_token=refresh_token
+        )
+    except InvalidAccount:
+        raise
+    except Exception as e:
+        # 디버깅을 위해 에러 출력
+        print(f"Error in login_for_token: {str(e)}")
+        raise
 
-@auth_router.post("/token/refresh", response_model=ResponseToken, status_code=status.HTTP_201_CREATED)
+@auth_router.post("/token/refresh", response_model=ResponseToken, status_code=status.HTTP_200_OK)
 def refresh_token(authorization: Optional[str] = Header(None)):
     """토큰 갱신 엔드포인트"""
-    if not authorization:
-        raise UnauthenticatedExeption()
-    
-    token = get_authorization_token(authorization)
-    
-    # 블랙리스트 체크
-    if token in blocked_token_db:
-        raise InvalidToken("Token has been invalidated")
-    
-    # 토큰 검증
-    payload = get_token_payload(token)
-    user_id = payload.get("sub")
-    if not user_id:
-        raise InvalidToken("Invalid token payload")
+    try:
+        if not authorization:
+            raise UnauthenticatedExeption()
         
-    # 기존 refresh token을 블랙리스트에 추가
-    blocked_token_db[token] = payload["exp"]
-    
-    # 새로운 토큰 쌍 생성
-    access_token = create_token(
-        data={"sub": user_id},
-        expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
-    )
-    
-    refresh_token = create_token(
-        data={"sub": user_id},
-        expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
-    )
-    
-    return ResponseToken(
-        access_token=access_token,
-        refresh_token=refresh_token
-    )
+        token = get_authorization_token(authorization)
+        
+        # 블랙리스트 체크
+        if token in blocked_token_db:
+            raise InvalidToken("Token has been invalidated")
+        
+        # 토큰 검증
+        payload = get_token_payload(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise InvalidToken("Invalid token payload")
+            
+        # 기존 refresh token을 블랙리스트에 추가
+        blocked_token_db[token] = payload["exp"]
+        
+        # 새로운 토큰 쌍 생성
+        access_token = create_token(
+            data={"sub": user_id},
+            expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
+        )
+        
+        refresh_token = create_token(
+            data={"sub": user_id},
+            expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
+        )
+        
+        return ResponseToken(
+            access_token=access_token,
+            refresh_token=refresh_token
+        )
+    except (UnauthenticatedExeption, InvalidToken):
+        raise
+    except Exception as e:
+        print(f"Error in refresh_token: {str(e)}")
+        raise
 
 @auth_router.delete("/token", status_code=status.HTTP_204_NO_CONTENT)
 def logout(authorization: Optional[str] = Header(None)):
@@ -149,28 +165,34 @@ def logout(authorization: Optional[str] = Header(None)):
     
     return None
 
-@auth_router.post("/session", status_code=status.HTTP_201_CREATED)
+@auth_router.post("/session", status_code=status.HTTP_200_OK)
 def session_login(response: Response, form_data: SessionData):
     """세션 로그인 엔드포인트"""
-    # 사용자 검증
-    user = authenticate_user(form_data.email, form_data.password)
-    
-    # 세션 ID 생성
-    session_id = secrets.token_hex(32)
-    
-    # 세션 저장
-    session_db[session_id] = str(user["user_id"])
-    
-    # 쿠키 설정
-    response.set_cookie(
-        key="sid",
-        value=session_id,
-        max_age=LONG_SESSION_LIFESPAN * 60,  # 분을 초로 변환
-        httponly=True,
-        samesite="lax"  # CSRF 보호
-    )
-    
-    return {}
+    try:
+        # 사용자 검증
+        user = authenticate_user(form_data.email, form_data.password)
+        
+        # 세션 ID 생성
+        session_id = secrets.token_hex(32)
+        
+        # 세션 저장
+        session_db[session_id] = str(user["user_id"])
+        
+        # 쿠키 설정
+        response.set_cookie(
+            key="sid",
+            value=session_id,
+            max_age=LONG_SESSION_LIFESPAN * 60,  # 분을 초로 변환
+            httponly=True,
+            samesite="lax"  # CSRF 보호
+        )
+        
+        return {}
+    except InvalidAccount:
+        raise
+    except Exception as e:
+        print(f"Error in session_login: {str(e)}")
+        raise
 
 @auth_router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)
 def delete_session(response: Response, sid: Optional[str] = Cookie(None)):
