@@ -21,23 +21,19 @@ auth_router = APIRouter(prefix="/auth", tags=["auth"])
 SECRET_KEY = "a2537d439a58e4b9f34e5e91fefd657b0044e1c2c4de5cf7c5fcea4d47c1a5bd"
 ALGORITHM = "HS256"
 
-# 토큰 만료 시간 설정
+# 토큰 만료 시간
 SHORT_SESSION_LIFESPAN = 15  
 LONG_SESSION_LIFESPAN = 24 * 60  
 
+# 비밀번호 해싱 설정
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_token_payload(token: str) -> dict:
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise InvalidToken()
-    except jwt.InvalidTokenError:
-        raise InvalidToken()
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return payload
 
 def authenticate_user(email: str, password: str):
     # 이메일로 사용자 조회
