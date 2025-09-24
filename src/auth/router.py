@@ -35,9 +35,9 @@ def get_token_payload(token: str) -> dict:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except jwt.ExpiredSignatureError:
-        raise InvalidToken("Token has expired")
+        raise InvalidToken()
     except jwt.InvalidTokenError:
-        raise InvalidToken("Invalid token")
+        raise InvalidToken()
 
 def authenticate_user(email: str, password: str):
     # 이메일로 사용자 조회
@@ -68,75 +68,57 @@ def verify_and_get_payload(authorization: Optional[str] = Header(None)) -> Token
     
     # 블랙리스트 체크
     if token in blocked_token_db:
-        raise InvalidToken("Token has been invalidated")
+        raise InvalidToken()
         
     payload = get_token_payload(token)
     return TokenData(sub=payload["sub"], exp=payload["exp"])
 
 @auth_router.post("/token", response_model=ResponseToken, status_code=status.HTTP_200_OK)
 def login_for_token(data: TokenData):
-    try:
-        user = authenticate_user(data.email, data.password)
-        
-        # access token
-        access_token = create_token(
-            data={"sub": str(user.user_id)},
-            expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
-        )
-        
-        # refresh token
-        refresh_token = create_token(
-            data={"sub": str(user.user_id)},
-            expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
-        )
-        
-        return ResponseToken(
-            access_token=access_token,
-            refresh_token=refresh_token
-        )
-    except InvalidAccount:
-        raise
-    except Exception as e:
-        print(f"Error in login_for_token: {str(e)}")
-        raise
-
+    user = authenticate_user(data.email, data.password)
+    
+    # access token
+    access_token = create_token(
+        data={"sub": str(user.user_id)},
+        expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
+    )
+    
+    # refresh token
+    refresh_token = create_token(
+        data={"sub": str(user.user_id)},
+        expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
+    )
+    
+    return ResponseToken(access_token=access_token, refresh_token=refresh_token)
+    
 @auth_router.post("/token/refresh", response_model=ResponseToken, status_code=status.HTTP_200_OK)
-def refresh_token(authorization: Optional[str] = Header(None)):
-    try:
-        if not authorization:
-            raise UnauthenticatedExeption()
+def make_refresh_token(authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise UnauthenticatedExeption()
+    
+    token = get_authorization_token(authorization)
+    
+    if token in blocked_token_db:
+        raise InvalidToken()
+    
+    payload = get_token_payload(token)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise InvalidToken()
         
-        token = get_authorization_token(authorization)
-        
-        if token in blocked_token_db:
-            raise InvalidToken("Token has been invalidated")
-        
-        payload = get_token_payload(token)
-        user_id = payload.get("sub")
-        if not user_id:
-            raise InvalidToken("Invalid token payload")
-            
-        blocked_token_db[token] = payload["exp"]
+    blocked_token_db[token] = payload["exp"]
 
-        access_token = create_token(
-            data={"sub": user_id},
-            expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
-        )
-        
-        refresh_token = create_token(
-            data={"sub": user_id},
-            expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
-        )
-        
-        return ResponseToken(
-            access_token=access_token,
-            refresh_token=refresh_token
-        )
-    except (UnauthenticatedExeption, InvalidToken):
-        raise
-    except Exception as e:
-        print(f"Error in refresh_token: {str(e)}")
-        raise
+    access_token = create_token(
+        data={"sub": user_id},
+        expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
+    )
+    
+    refresh_token = create_token(
+        data={"sub": user_id},
+        expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
+    )
+    
+    return ResponseToken(access_token=access_token, refresh_token=refresh_token)
 
 @auth_router.delete("/token", status_code=status.HTTP_204_NO_CONTENT)
 def logout(authorization: Optional[str] = Header(None)):
@@ -152,31 +134,24 @@ def logout(authorization: Optional[str] = Header(None)):
 
 @auth_router.post("/session", status_code=status.HTTP_200_OK)
 def session_login(response: Response, form_data: SessionData):
-    try:
-        user = authenticate_user(form_data.email, form_data.password)
-        
-        session_id = secrets.token_hex(32)
-        
-        session_db[session_id] = str(user.user_id)
+    user = authenticate_user(form_data.email, form_data.password)
+    
+    session_id = secrets.token_hex(32)
+    
+    session_db[session_id] = str(user.user_id)
 
-        response.set_cookie(
-            key="sid",
-            value=session_id,
-            max_age=LONG_SESSION_LIFESPAN * 60, 
-            httponly=True,
-            samesite="lax"
-        )
-        
-        return {}
-    except InvalidAccount:
-        raise
-    except Exception as e:
-        print(f"Error in session_login: {str(e)}")
-        raise
+    response.set_cookie(
+        key="sid",
+        value=session_id,
+        max_age=LONG_SESSION_LIFESPAN * 60, 
+        httponly=True,
+        samesite="lax"
+    )
+    
+    return None
 
 @auth_router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)
 def delete_session(response: Response, sid: Optional[str] = Cookie(None)):
-    """세션 로그아웃 엔드포인트"""
     response.delete_cookie(key="sid")
     
     if sid and sid in session_db:
