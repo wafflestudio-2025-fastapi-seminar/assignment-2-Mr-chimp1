@@ -59,15 +59,16 @@ def verify_token(token: str) -> int:
     if token in blocked_token_db:
         raise InvalidToken()
     
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    user_id = payload.get("sub")
-    expiry = payload.get("exp")
-    current_time = datetime.now(timezone.utc).timestamp()
-    if expiry < current_time:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise InvalidToken()
+        return int(user_id)
+    except jwt.ExpiredSignatureError:
         raise InvalidToken()
-    if not user_id:
+    except jwt.InvalidTokenError:
         raise InvalidToken()
-    return int(user_id)
 
 def get_user_from_token(authorization: str) -> User:
     if not authorization:
@@ -76,7 +77,6 @@ def get_user_from_token(authorization: str) -> User:
     if not authorization.startswith("Bearer "):
         raise BadAuthorizationHeader()
     token = authorization.split(" ")[1]
-
     user_id = verify_token(token)
     user = get_user_by_id(user_id)
     if not user:
