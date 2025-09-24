@@ -89,7 +89,7 @@ def get_user_from_session(sid: str) -> User:
     
     user_id, expiry_time = session_db[sid]
 
-    if expiry_time < datetime.now(datetime.timezone.utc):
+    if expiry_time < datetime.now(datetime.timezone.utc).timestamp():
         session_db.pop(sid)
         raise InvalidSession()
     
