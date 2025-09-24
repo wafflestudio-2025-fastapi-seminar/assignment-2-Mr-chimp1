@@ -3,7 +3,8 @@ import re
 from pydantic import BaseModel, field_validator, EmailStr
 from fastapi import HTTPException
 
-from users.errors import InvalidPasswordException
+from src.users.errors import MissingValueException, InvalidPasswordException, EmailAlreadyExists, InvalidPhoneNumberException, BioTooLongException
+from src.common.database import user_db
 
 class CreateUserRequest(BaseModel):
     name: str
@@ -13,6 +14,18 @@ class CreateUserRequest(BaseModel):
     bio: str | None = None
     height: float
 
+    @field_validator('name','email','password', 'phone_number', 'height')
+    def check_missing(cls, v):
+        if v == None:
+            raise MissingValueException
+
+    @field_validator('email', mode= 'after')
+    def check_db(cls, v):
+        for i in user_db:
+            if i.email == v:
+                raise EmailAlreadyExists()
+        return v
+
     @field_validator('password', mode='after')
     def validate_password(cls, v):
         if len(v) < 8 or len(v) > 20:
@@ -21,11 +34,26 @@ class CreateUserRequest(BaseModel):
     
     @field_validator('phone_number', mode='after')
     def validate_phone_number(cls, v):
-        pass
+        pattern = r'^010-\d{4}-\d{4}$'
+        if re.fullmatch(pattern,v):
+            return v
+        else:
+            raise InvalidPhoneNumberException
 
     @field_validator('bio', mode='after')
     def validate_bio(cls, v):
-        pass
+        if v is not None and len(v) > 500:
+            raise BioTooLongException
+
+class User(BaseModel):
+    user_id: int
+    email: EmailStr
+    hashed_password: str
+    name: str
+    phone_number: str
+    height: float
+    bio: str | None = None
+
 
 class UserResponse(BaseModel):
     user_id: int
