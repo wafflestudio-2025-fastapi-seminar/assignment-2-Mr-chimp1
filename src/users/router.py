@@ -59,11 +59,7 @@ def verify_token(token: str) -> int:
     if token in blocked_token_db:
         raise InvalidToken()
     
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-        raise InvalidToken()
-    
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     user_id = payload.get("sub")
     if not user_id:
         raise InvalidToken()
@@ -99,13 +95,14 @@ def get_user_info(
     if not authorization and not sid:
         raise UnauthenticatedExeption()
         
-    try:
-        user = get_user_from_token(authorization) if authorization else get_user_from_session(sid)
-        
-        return UserResponse.model_validate(user)
-            
-    except (InvalidToken, InvalidSession, BadAuthorizationHeader, UnauthenticatedExeption):
-        raise
-    except Exception as e:
-        print(f"Error in get_user_info: {str(e)}")
-        raise InvalidToken()
+    user = get_user_from_token(authorization) if authorization else get_user_from_session(sid)
+    
+    return UserResponse(
+        user_id=user.user_id,
+        email=user.email,
+        name=user.name,
+        phone_number=user.phone_number,
+        height=user.height,
+        bio=user.bio
+    )
+    
