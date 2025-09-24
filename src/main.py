@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-
+from fastapi.responses import JSONResponse
+from src.common.custom_exception import CustomException
 from tests.util import get_all_src_py_files_hash
 from src.api import api_router
 
