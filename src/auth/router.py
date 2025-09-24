@@ -54,7 +54,7 @@ def create_token(data: dict, expires_delta: timedelta) -> str:
 def get_authorization_token(authorization: str) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise BadAuthorizationHeader()
-    return authorization.split(" ")[1]
+    return authorization.split("")[1]
 
 def verify_and_get_payload(authorization: Optional[str] = Header(None)) -> TokenData:
     if not authorization:
