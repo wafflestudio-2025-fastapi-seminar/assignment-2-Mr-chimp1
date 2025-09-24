@@ -11,7 +11,7 @@ class CreateUserRequest(BaseModel):
     email: EmailStr
     password: str
     phone_number: str
-    bio: str | None
+    bio: str | None = None
     height: float
 
     @field_validator('name', 'email', 'password', 'phone_number', 'height')
@@ -53,7 +53,7 @@ class User(BaseModel):
     name: str
     phone_number: str
     height: float
-    bio: str | None
+    bio: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -61,5 +61,5 @@ class UserResponse(BaseModel):
     name: str
     email: EmailStr
     phone_number: str
-    bio: str | None
+    bio: str | None = None
     height: float
