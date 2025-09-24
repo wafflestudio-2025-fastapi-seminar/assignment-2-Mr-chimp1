@@ -54,7 +54,9 @@ def create_token(data: dict, expires_delta: timedelta) -> str:
 def get_authorization_token(authorization: str) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise BadAuthorizationHeader()
-    return authorization.split("")[1]
+    token = authorization.split(" ")[1]
+    print(token)
+    return token
 
 def verify_and_get_payload(authorization: Optional[str] = Header(None)) -> TokenData:
     if not authorization:
@@ -89,35 +91,34 @@ def login_for_token(data: TokenData) -> ResponseToken:
     
 @auth_router.post("/token/refresh", status_code=status.HTTP_200_OK)
 def make_refresh_token(authorization: Optional[str] = Header(None)) -> ResponseToken:
-    # Authorization 헤더 검사
     if not authorization:
         raise UnauthenticatedExeption()
     
+    token = get_authorization_token(authorization)
+    
     try:
-        # Bearer 토큰 추출
-        token = get_authorization_token(authorization)
-        
-        # 블랙리스트 체크
-        if token in blocked_token_db:
-            raise InvalidToken()
-        
-        # 토큰 검증 및 페이로드 추출
+        # Verify this is a valid JWT token
         payload = get_token_payload(token)
-        user_id = str(payload.get("sub"))
-        expiry = payload.get("exp")
         
+        # Verify required claims exist
+        user_id = payload.get("sub")
+        expiry = payload.get("exp")
         if not user_id or not expiry:
             raise InvalidToken()
         
-        # 만료 시간 검증
+        # Check if token is already blocked
+        if token in blocked_token_db:
+            raise InvalidToken()
+        
+        # Verify token expiration
         current_time = datetime.now(timezone.utc).timestamp()
         if expiry < current_time:
             raise InvalidToken()
             
-        # 현재 refresh 토큰을 블랙리스트에 추가
+        # Block the old refresh token
         blocked_token_db[token] = expiry
-        
-        # 새로운 토큰 쌍 생성
+
+        # Generate new tokens
         access_token = create_token(
             data={"sub": user_id},
             expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
