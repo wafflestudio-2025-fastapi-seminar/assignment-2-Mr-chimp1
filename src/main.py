@@ -8,6 +8,16 @@ app = FastAPI()
 
 app.include_router(api_router)
 
+@app.exception_handler(CustomException)
+async def custom_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error_code": exc.error_code,
+            "error_msg": exc.error_message
+        }
+    )
+
 @app.get("/health")
 def health_check():
     # 서버 정상 배포 여부를 확인하기 위한 엔드포인트입니다.
