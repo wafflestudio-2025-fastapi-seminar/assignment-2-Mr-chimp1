@@ -1,9 +1,10 @@
 import http
 import logging
+from fastapi import HTTPException
 
 logger = logging.getLogger('uvicorn.error')
 
-class CustomException(Exception):
+class CustomException(HTTPException):
     def __init__(
         self,
         status_code: int = 500,
@@ -29,3 +30,11 @@ class CustomException(Exception):
                             f" defaulting to '{self.error_message}'")
         else:
             self.error_message = error_message
+        
+        super().__init__(
+            status_code=self.status_code,
+            detail={
+                "error_code": self.error_code,
+                "error_msg": self.error_message
+            }
+        )
