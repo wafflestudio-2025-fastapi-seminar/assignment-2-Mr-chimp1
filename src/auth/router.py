@@ -135,7 +135,7 @@ def session_login(response: Response, form_data: SessionData):
     session_id = secrets.token_hex(32)
     expiry_time = datetime.now(timezone.utc) + timedelta(minutes=LONG_SESSION_LIFESPAN)
 
-    session_db[session_id] = (str(user.user_id), expiry_time)
+    session_db[session_id] = (int(user.user_id), expiry_time)
     
     response.set_cookie(
         key="sid",
