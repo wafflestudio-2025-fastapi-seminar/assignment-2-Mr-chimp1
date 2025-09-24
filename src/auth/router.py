@@ -91,12 +91,13 @@ def login_for_token(data: TokenData) -> ResponseToken:
     
 @auth_router.post("/token/refresh", status_code=status.HTTP_200_OK)
 def make_refresh_token(authorization: Optional[str] = Header(None)) -> ResponseToken:
-    print(authorization)
+    print("Authorization header:", authorization)
     if not authorization:
         raise UnauthenticatedExeption()
     
     token = get_authorization_token(authorization)
-    
+    print(token)
+
     try:
         # Verify this is a valid JWT token
         payload = get_token_payload(token)
@@ -117,7 +118,7 @@ def make_refresh_token(authorization: Optional[str] = Header(None)) -> ResponseT
             raise InvalidToken()
             
         # Block the old refresh token
-        blocked_token_db[token] = expiry
+        blocked_token_db.add(token)
 
         # Generate new tokens
         access_token = create_token(
