@@ -103,7 +103,7 @@ def make_refresh_token(authorization: Optional[str] = Header(None)) -> ResponseT
         
         # 토큰 검증 및 페이로드 추출
         payload = get_token_payload(token)
-        user_id = payload.get("sub")
+        user_id = str(payload.get("sub"))
         expiry = payload.get("exp")
         
         if not user_id or not expiry:
