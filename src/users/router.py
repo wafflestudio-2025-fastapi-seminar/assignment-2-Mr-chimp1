@@ -39,7 +39,6 @@ def create_user(request: CreateUserRequest) -> UserResponse:
     )
     user_db.append(user)
     
-    # 응답 변환 및 반환
     return UserResponse(
         user_id=user.user_id,
         email=user.email,
@@ -97,15 +96,12 @@ def get_user_info(
     authorization: Optional[str] = Header(None),
     sid: Optional[str] = Cookie(None)
 ):
-    """사용자 프로필 조회 엔드포인트"""
     if not authorization and not sid:
         raise UnauthenticatedExeption()
         
     try:
-        # 토큰 또는 세션으로 사용자 정보 조회
         user = get_user_from_token(authorization) if authorization else get_user_from_session(sid)
         
-        # 응답 변환 및 반환
         return UserResponse.model_validate(user)
             
     except (InvalidToken, InvalidSession, BadAuthorizationHeader, UnauthenticatedExeption):
