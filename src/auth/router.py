@@ -4,6 +4,7 @@ import jwt
 import secrets
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
+from pydantic import BaseModel
 
 from src.auth.schemas import TokenData, ResponseToken, SessionData, Cookies
 from src.users.errors import (
@@ -75,20 +76,20 @@ def verify_and_get_payload(authorization: Optional[str] = Header(None)) -> Token
     payload = get_token_payload(token)
     return TokenData(sub=payload["sub"], exp=payload["exp"])
 
-@auth_router.post("/token", response_model=ResponseToken)
+@auth_router.post("/token", response_model=ResponseToken, status_code=status.HTTP_201_CREATED)
 def login_for_token(data: TokenData):
     """토큰 발급 엔드포인트"""
     user = authenticate_user(data.email, data.password)
     
     # access token 생성 (15분)
     access_token = create_token(
-        data={"sub": user["email"]},
+        data={"sub": str(user["user_id"])},
         expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
     )
     
     # refresh token 생성 (24시간)
     refresh_token = create_token(
-        data={"sub": user["email"]},
+        data={"sub": str(user["user_id"])},
         expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
     )
     
@@ -97,7 +98,7 @@ def login_for_token(data: TokenData):
         refresh_token=refresh_token
     )
 
-@auth_router.post("/token/refresh", response_model=ResponseToken)
+@auth_router.post("/token/refresh", response_model=ResponseToken, status_code=status.HTTP_201_CREATED)
 def refresh_token(authorization: Optional[str] = Header(None)):
     """토큰 갱신 엔드포인트"""
     if not authorization:
@@ -111,8 +112,8 @@ def refresh_token(authorization: Optional[str] = Header(None)):
     
     # 토큰 검증
     payload = get_token_payload(token)
-    user_email = payload.get("sub")
-    if not user_email:
+    user_id = payload.get("sub")
+    if not user_id:
         raise InvalidToken("Invalid token payload")
         
     # 기존 refresh token을 블랙리스트에 추가
@@ -120,12 +121,12 @@ def refresh_token(authorization: Optional[str] = Header(None)):
     
     # 새로운 토큰 쌍 생성
     access_token = create_token(
-        data={"sub": user_email},
+        data={"sub": user_id},
         expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
     )
     
     refresh_token = create_token(
-        data={"sub": user_email},
+        data={"sub": user_id},
         expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
     )
     
@@ -148,7 +149,7 @@ def logout(authorization: Optional[str] = Header(None)):
     
     return None
 
-@auth_router.post("/session")
+@auth_router.post("/session", status_code=status.HTTP_201_CREATED)
 def session_login(response: Response, form_data: SessionData):
     """세션 로그인 엔드포인트"""
     # 사용자 검증
@@ -158,7 +159,7 @@ def session_login(response: Response, form_data: SessionData):
     session_id = secrets.token_hex(32)
     
     # 세션 저장
-    session_db[session_id] = user["email"]
+    session_db[session_id] = str(user["user_id"])
     
     # 쿠키 설정
     response.set_cookie(

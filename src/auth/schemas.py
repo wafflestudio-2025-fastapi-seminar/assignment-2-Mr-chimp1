@@ -3,34 +3,41 @@ from src.users.errors import MissingValueException, InvalidAccount, BadAuthoriza
 import re
 
 class TokenData(BaseModel):
-    email : EmailStr
-    password : str
+    email: EmailStr
+    password: str
 
     @field_validator("email", "password")
     def check_missing(cls, v):
-        if v == None:
+        if v is None or v == "":
             raise MissingValueException
+        return v
 
 class ResponseToken(BaseModel):
-    access_token : str
-    refresh_token : str
+    access_token: str
+    refresh_token: str
     
 class AuthorizationHeader(BaseModel):
-    Authorization : str | None
+    Authorization: str | None
 
     @field_validator("Authorization")
     def check_header(cls, v):
-        pattern = r"^Bearer\s[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.=]+$"
-        if re.fullmatch(pattern=pattern, string = v):
-            return v
-        elif v == None:
+        if v is None:
             raise UnauthenticatedExeption
-        else:
+        
+        pattern = r"^Bearer\s[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.=]+$"
+        if not re.fullmatch(pattern=pattern, string=v):
             raise BadAuthorizationHeader
+        return v
         
 class SessionData(BaseModel):
-    email : EmailStr
-    password : str
+    email: EmailStr
+    password: str
+
+    @field_validator("email", "password")
+    def check_missing(cls, v):
+        if v is None or v == "":
+            raise MissingValueException
+        return v
 
 class Cookies(BaseModel):
-    session_id: str
+    session_id: str | None = None
