@@ -118,7 +118,7 @@ def make_refresh_token(authorization: Optional[str] = Header(None)) -> ResponseT
             raise InvalidToken()
             
         # Block the old refresh token
-        blocked_token_db.add(token)
+        blocked_token_db[token] = expiry
 
         # Generate new tokens
         access_token = create_token(
