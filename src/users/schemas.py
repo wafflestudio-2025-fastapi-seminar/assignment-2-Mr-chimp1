@@ -14,12 +14,13 @@ class CreateUserRequest(BaseModel):
     height: float
     bio: str | None = None
 
-    @field_validator('*', mode='before')
-    def check_missing(cls, v, info):
-        # bio는 선택적 필드이므로 제외
-        if info.field_name != 'bio' and (v is None):
-            raise MissingValueException()
-        return v
+    @model_validator(mode='before')
+    def validate_required_fields(cls, values):
+        required_fields = ['name', 'email', 'password', 'phone_number', 'height']
+        for field in required_fields:
+            if field not in values or values[field] is None:
+                raise MissingValueException()
+        return values
 
     @field_validator('email', mode='after')
     def check_db(cls, v):
