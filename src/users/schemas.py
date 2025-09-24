@@ -1,24 +1,26 @@
 import re
 
-from pydantic import BaseModel, field_validator, EmailStr
+from pydantic import BaseModel, field_validator, EmailStr, model_validator
 from fastapi import HTTPException
 
 from src.users.errors import MissingValueException, InvalidPasswordException, EmailAlreadyExists, InvalidPhoneNumberException, BioTooLongException
 from src.common.database import user_db
 
 class CreateUserRequest(BaseModel):
-    name: str | None = None
-    email: EmailStr | None = None
-    password: str | None = None
-    phone_number: str | None = None
+    name: str
+    email: EmailStr
+    password: str
+    phone_number: str
+    height: float
     bio: str | None = None
-    height: float | None = None
 
-    @field_validator('*', mode='before')
-    def check_missing(cls, v, info):
-        if info.field_name != 'bio' and v is None:
-            raise MissingValueException()
-        return v
+    @model_validator(mode='before')
+    def validate_required_fields(cls, values):
+        required_fields = ['name', 'email', 'password', 'phone_number', 'height']
+        for field in required_fields:
+            if field not in values or values[field] is None:
+                raise MissingValueException()
+        return values
 
     @field_validator('email', mode='after')
     def check_db(cls, v):
