@@ -67,9 +67,11 @@ def verify_token(token: str) -> int:
         raise InvalidToken()
     if not user_id:
         raise InvalidToken()
-    return user_id
+    return int(user_id)
 
 def get_user_from_token(authorization: str) -> User:
+    if not authorization:
+        raise UnauthenticatedExeption()
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise BadAuthorizationHeader()
