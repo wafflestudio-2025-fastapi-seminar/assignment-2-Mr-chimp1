@@ -52,7 +52,7 @@ def create_token(data: dict, expires_delta: timedelta) -> str:
     return encoded_jwt
 
 def get_authorization_token(authorization: str) -> str:
-    if not authorization or not authorization.startswith("Bearer "):
+    if not authorization.startswith("Bearer "):
         raise BadAuthorizationHeader()
     token = authorization.split(" ")[1]
     print(token)
@@ -91,6 +91,7 @@ def login_for_token(data: TokenData) -> ResponseToken:
     
 @auth_router.post("/token/refresh", status_code=status.HTTP_200_OK)
 def make_refresh_token(authorization: Optional[str] = Header(None)) -> ResponseToken:
+    print(authorization)
     if not authorization:
         raise UnauthenticatedExeption()
     
