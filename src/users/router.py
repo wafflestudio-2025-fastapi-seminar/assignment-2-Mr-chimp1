@@ -23,12 +23,33 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
 
 @user_router.post("/", status_code=status.HTTP_201_CREATED)
 def create_user(request: CreateUserRequest) -> UserResponse:
+    from src.auth.router import pwd_context
+    
     user_id = len(user_db) + 1
-    user = request.model_dump()
-    user["user_id"] = user_id
+    
+    # Create User object with hashed password
+    user_data = {
+        "user_id": user_id,
+        "email": request.email,
+        "hashed_password": pwd_context.hash(request.password),
+        "name": request.name,
+        "phone_number": request.phone_number,
+        "height": request.height,
+        "bio": request.bio
+    }
+    
+    user = User(**user_data)
     user_db.append(user)
-    response = user
-    return response
+    
+    # Create UserResponse without sensitive data
+    return UserResponse(
+        user_id=user.user_id,
+        name=user.name,
+        email=user.email,
+        phone_number=user.phone_number,
+        bio=user.bio,
+        height=user.height
+    )
 
 
 def get_user_by_id(user_id: int) -> User | None:
