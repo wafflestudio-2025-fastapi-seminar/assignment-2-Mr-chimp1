@@ -69,8 +69,8 @@ def verify_and_get_payload(authorization: Optional[str] = Header(None)) -> Token
     payload = get_token_payload(token)
     return TokenData(sub=payload["sub"], exp=payload["exp"])
 
-@auth_router.post("/token", response_model=ResponseToken, status_code=status.HTTP_200_OK)
-def login_for_token(data: TokenData):
+@auth_router.post("/token",  status_code=status.HTTP_200_OK)
+def login_for_token(data: TokenData) -> ResponseToken:
     user = authenticate_user(data.email, data.password)
     
     # access token
@@ -87,8 +87,8 @@ def login_for_token(data: TokenData):
     
     return ResponseToken(access_token=access_token, refresh_token=refresh_token)
     
-@auth_router.post("/token/refresh", response_model=ResponseToken, status_code=status.HTTP_200_OK)
-def make_refresh_token(authorization: Optional[str] = Header(None)):
+@auth_router.post("/token/refresh", status_code=status.HTTP_200_OK)
+def make_refresh_token(authorization: Optional[str] = Header(None)) -> ResponseToken:
     if not authorization:
         raise UnauthenticatedExeption()
     
