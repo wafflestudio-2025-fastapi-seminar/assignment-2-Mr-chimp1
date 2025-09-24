@@ -14,15 +14,16 @@ class CreateUserRequest(BaseModel):
     bio: str | None = None
     height: float
 
-    @field_validator('name','email','password', 'phone_number', 'height')
+    @field_validator('name', 'email', 'password', 'phone_number', 'height')
     def check_missing(cls, v):
-        if v == None:
-            raise MissingValueException
+        if v is None:
+            raise MissingValueException()
+        return v
 
-    @field_validator('email', mode= 'after')
+    @field_validator('email', mode='after')
     def check_db(cls, v):
-        for i in user_db:
-            if i.email == v:
+        for user in user_db:
+            if user.email == v:
                 raise EmailAlreadyExists()
         return v
 
@@ -35,15 +36,15 @@ class CreateUserRequest(BaseModel):
     @field_validator('phone_number', mode='after')
     def validate_phone_number(cls, v):
         pattern = r'^010-\d{4}-\d{4}$'
-        if re.fullmatch(pattern,v):
-            return v
-        else:
-            raise InvalidPhoneNumberException
+        if not re.fullmatch(pattern, v):
+            raise InvalidPhoneNumberException()
+        return v
 
     @field_validator('bio', mode='after')
     def validate_bio(cls, v):
         if v is not None and len(v) > 500:
-            raise BioTooLongException
+            raise BioTooLongException()
+        return v
 
 class User(BaseModel):
     user_id: int

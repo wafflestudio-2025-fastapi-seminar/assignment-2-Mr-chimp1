@@ -5,7 +5,7 @@ class MissingValueException(CustomException):
         super().__init__(
             status_code=422,
             error_code="ERR_001",
-            error_message="	MISSING VALUE"
+            error_message="MISSING VALUE"
         )
 
 class InvalidPasswordException(CustomException):
@@ -45,7 +45,7 @@ class InvalidSession(CustomException):
         super().__init__(
             status_code=401,
             error_code="ERR_006",
-            error_message="	INVALID SESSION"
+            error_message="INVALID SESSION"
         )
 
 

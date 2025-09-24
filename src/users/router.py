@@ -25,9 +25,7 @@ user_router = APIRouter(prefix="/users", tags=["users"])
 
 @user_router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(request: CreateUserRequest) -> UserResponse:
-    """새 사용자를 생성하는 엔드포인트"""
     try:
-        # 새 user_id 생성
         user_id = len(user_db) + 1
         
         # User 객체 생성 및 저장
