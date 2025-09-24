@@ -100,12 +100,13 @@ def make_refresh_token(authorization: Optional[str] = Header(None)) -> ResponseT
     payload = get_token_payload(token)
     user_id = payload.get("sub")
     expirey = payload.get("exp")
-    if not user_id:
+    if not user_id or not expirey:
         raise InvalidToken()
+    
     if expirey < datetime.now(timezone.utc).timestamp():
         raise InvalidToken()
         
-    blocked_token_db[token] = payload["exp"]
+    blocked_token_db[token] = expirey
 
     access_token = create_token(
         data={"sub": user_id},

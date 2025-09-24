@@ -61,6 +61,9 @@ def verify_token(token: str) -> int:
     
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     user_id = payload.get("sub")
+    expiry = payload.get("exp")
+    if expiry < datetime.datetime.now(datetime.timezone.utc).timestamp():
+        raise InvalidToken()
     if not user_id:
         raise InvalidToken()
     
