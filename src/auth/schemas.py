@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 from src.users.errors import MissingValueException, InvalidAccount, BadAuthorizationHeader, UnauthenticatedExeption
 import re
 
@@ -6,10 +6,13 @@ class TokenData(BaseModel):
     email: EmailStr
     password: str
 
-    @field_validator("email", "password")
+    @model_validator(mode='before')
     def check_missing(cls, v):
-        if v is None or v == "":
-            raise MissingValueException()
+        required_fields = ['email', 'password']
+
+        for field in required_fields:
+            if field not in v or not v[field]:
+                raise MissingValueException()
         return v
 
 class ResponseToken(BaseModel):
@@ -19,7 +22,7 @@ class ResponseToken(BaseModel):
 class AuthorizationHeader(BaseModel):
     Authorization: str | None
 
-    @field_validator("Authorization")
+    @field_validator("Authorization", mode="after")
     def check_header(cls, v):
         if v is None:
             raise UnauthenticatedExeption()
@@ -33,10 +36,17 @@ class SessionData(BaseModel):
     email: EmailStr
     password: str
 
-    @field_validator("email", "password")
+class SessionData(BaseModel):
+    email: EmailStr
+    password: str
+
+    @model_validator(mode='before')
     def check_missing(cls, v):
-        if v is None or v == "":
-            raise MissingValueException()
+        required_fields = ['email', 'password']
+            
+        for field in required_fields:
+            if field not in v or not v[field]:
+                raise MissingValueException()
         return v
 
 class Cookies(BaseModel):
