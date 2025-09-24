@@ -9,7 +9,7 @@ class TokenData(BaseModel):
     @field_validator("email", "password")
     def check_missing(cls, v):
         if v is None or v == "":
-            raise MissingValueException
+            raise MissingValueException()
         return v
 
 class ResponseToken(BaseModel):
@@ -22,11 +22,11 @@ class AuthorizationHeader(BaseModel):
     @field_validator("Authorization")
     def check_header(cls, v):
         if v is None:
-            raise UnauthenticatedExeption
+            raise UnauthenticatedExeption()
         
         pattern = r"^Bearer\s[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.=]+$"
         if not re.fullmatch(pattern=pattern, string=v):
-            raise BadAuthorizationHeader
+            raise BadAuthorizationHeader()
         return v
         
 class SessionData(BaseModel):
@@ -36,7 +36,7 @@ class SessionData(BaseModel):
     @field_validator("email", "password")
     def check_missing(cls, v):
         if v is None or v == "":
-            raise MissingValueException
+            raise MissingValueException()
         return v
 
 class Cookies(BaseModel):
