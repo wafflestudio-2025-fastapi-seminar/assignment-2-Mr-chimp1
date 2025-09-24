@@ -89,36 +89,49 @@ def login_for_token(data: TokenData) -> ResponseToken:
     
 @auth_router.post("/token/refresh", status_code=status.HTTP_200_OK)
 def make_refresh_token(authorization: Optional[str] = Header(None)) -> ResponseToken:
+    # Authorization 헤더 검사
     if not authorization:
         raise UnauthenticatedExeption()
     
-    token = get_authorization_token(authorization)
-    
-    if token in blocked_token_db:
-        raise InvalidToken()
-    
-    payload = get_token_payload(token)
-    user_id = payload.get("sub")
-    expirey = payload.get("exp")
-    if not user_id or not expirey:
-        raise InvalidToken()
-    
-    if expirey < datetime.now(timezone.utc).timestamp():
-        raise InvalidToken()
+    try:
+        # Bearer 토큰 추출
+        token = get_authorization_token(authorization)
         
-    blocked_token_db[token] = expirey
-
-    access_token = create_token(
-        data={"sub": user_id},
-        expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
-    )
-    
-    refresh_token = create_token(
-        data={"sub": user_id},
-        expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
-    )
-    
-    return ResponseToken(access_token=access_token, refresh_token=refresh_token)
+        # 블랙리스트 체크
+        if token in blocked_token_db:
+            raise InvalidToken()
+        
+        # 토큰 검증 및 페이로드 추출
+        payload = get_token_payload(token)
+        user_id = payload.get("sub")
+        expiry = payload.get("exp")
+        
+        if not user_id or not expiry:
+            raise InvalidToken()
+        
+        # 만료 시간 검증
+        current_time = datetime.now(timezone.utc).timestamp()
+        if expiry < current_time:
+            raise InvalidToken()
+            
+        # 현재 refresh 토큰을 블랙리스트에 추가
+        blocked_token_db[token] = expiry
+        
+        # 새로운 토큰 쌍 생성
+        access_token = create_token(
+            data={"sub": user_id},
+            expires_delta=timedelta(minutes=SHORT_SESSION_LIFESPAN)
+        )
+        
+        refresh_token = create_token(
+            data={"sub": user_id},
+            expires_delta=timedelta(minutes=LONG_SESSION_LIFESPAN)
+        )
+        
+        return ResponseToken(access_token=access_token, refresh_token=refresh_token)
+        
+    except jwt.InvalidTokenError:
+        raise InvalidToken()
 
 @auth_router.delete("/token", status_code=status.HTTP_204_NO_CONTENT)
 def logout(authorization: Optional[str] = Header(None)):
