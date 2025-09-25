@@ -1,7 +1,7 @@
-from pydantic import BaseModel, EmailStr, field_validator, model_validator
-from src.users.errors import MissingValueException, InvalidAccount, BadAuthorizationHeader, UnauthenticatedExeption
-import re
+from pydantic import BaseModel, EmailStr, model_validator
+from src.users.errors import MissingValueException
 
+### 토큰 ###
 class TokenData(BaseModel):
     email: EmailStr
     password: str
@@ -18,24 +18,8 @@ class TokenData(BaseModel):
 class ResponseToken(BaseModel):
     access_token: str
     refresh_token: str
-    
-class AuthorizationHeader(BaseModel):
-    Authorization: str | None
 
-    @field_validator("Authorization", mode="after")
-    def check_header(cls, v):
-        if v is None:
-            raise UnauthenticatedExeption()
-        
-        pattern = r"^Bearer\s[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.=]+$"
-        if not re.fullmatch(pattern=pattern, string=v):
-            raise BadAuthorizationHeader()
-        return v
-        
-class SessionData(BaseModel):
-    email: EmailStr
-    password: str
-
+### 세션 ###
 class SessionData(BaseModel):
     email: EmailStr
     password: str
@@ -48,6 +32,3 @@ class SessionData(BaseModel):
             if field not in v or not v[field]:
                 raise MissingValueException()
         return v
-
-class Cookies(BaseModel):
-    session_id: str | None = None

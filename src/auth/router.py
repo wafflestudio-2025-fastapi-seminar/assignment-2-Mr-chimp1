@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 from src.users.schemas import User
-from src.auth.schemas import TokenData, ResponseToken, SessionData, Cookies
+from src.auth.schemas import TokenData, ResponseToken, SessionData
 from src.users.errors import (
     InvalidAccount, 
     InvalidToken, 

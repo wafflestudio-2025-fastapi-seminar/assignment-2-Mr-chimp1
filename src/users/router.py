@@ -1,8 +1,8 @@
 from typing import Optional
-from fastapi import APIRouter, Header, Cookie, status, HTTPException
+from fastapi import APIRouter, Header, Cookie, status
 import jwt
 from src.auth.router import pwd_context
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from src.users.schemas import CreateUserRequest, UserResponse, User
 from src.common.database import blocked_token_db, session_db, user_db
 from src.users.errors import (
@@ -10,11 +10,6 @@ from src.users.errors import (
     BadAuthorizationHeader, 
     InvalidToken, 
     UnauthenticatedExeption,
-    MissingValueException,
-    InvalidPasswordException,
-    EmailAlreadyExists,
-    InvalidPhoneNumberException,
-    BioTooLongException
 )
 
 # JWT 설정
@@ -47,7 +42,7 @@ def create_user(request: CreateUserRequest) -> UserResponse:
         height=user.height,
         bio=user.bio)
 
-
+### 유저 조회 함수 ###
 # user id로 user 조회 (공통)
 def get_user_by_id(user_id: int) -> User | None:
     for user in user_db:
@@ -85,21 +80,17 @@ def get_user_from_token(authorization: str) -> User:
     if not user:
         raise InvalidToken()
     return user
+
 #### 세션 ####
 # 세션 검증 (세션)
 def verify_session(sid: str) -> int:
     if sid not in session_db:
-        print("Session not found in DB")  # 디버깅용
         raise InvalidSession()
     
     user_id, expiry_time = session_db[sid]
     current_time = datetime.now(timezone.utc)
 
-    print(f"Expiry time: {expiry_time}")  # 디버깅용
-    print(f"Current time: {current_time}")  # 디버깅용
-
     if expiry_time < current_time:
-        print("Session expired")  # 디버깅용
         session_db.pop(sid)
         raise InvalidSession()
     return int(user_id)
@@ -119,8 +110,6 @@ def get_user_info(
     sid: Optional[str] = Cookie(None)
 ) -> UserResponse:
     
-    print(f"Session ID: {sid}")  # 디버깅용
-    print(f"Session DB: {session_db}")  # 디버깅용
     # 세션 검사
     if sid:
         user = get_user_from_session(sid)
