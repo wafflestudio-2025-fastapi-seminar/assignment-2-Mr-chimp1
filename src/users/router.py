@@ -83,7 +83,7 @@ def get_user_from_token(authorization: str) -> User:
         raise InvalidToken()
     return user
 
-def get_user_from_session(sid: str) -> User:
+def get_user_from_session(sid: str) -> UserResponse:
     if sid not in session_db:
         raise InvalidSession()
     
@@ -96,7 +96,15 @@ def get_user_from_session(sid: str) -> User:
     user = get_user_by_id(user_id)
     if not user:
         raise InvalidSession()
-    return user
+    return UserResponse(
+        user_id=user.user_id,
+        email=user.email,
+        hashed_password=user.hashed_password,
+        name=user.name,
+        phone_number=user.phone_number,
+        height=user.height,
+        bio=user.bio
+    )
 
 @user_router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
 def get_user_info(
