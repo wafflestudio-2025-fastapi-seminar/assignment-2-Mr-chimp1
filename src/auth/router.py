@@ -5,7 +5,7 @@ import secrets
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
-
+from src.users.schemas import User
 from src.auth.schemas import TokenData, ResponseToken, SessionData, Cookies
 from src.users.errors import (
     InvalidAccount, 
@@ -35,7 +35,7 @@ def get_token_payload(token: str) -> dict:
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     return payload
 
-def authenticate_user(email: str, password: str):
+def authenticate_user(email: str, password: str) -> User:
     # 이메일로 사용자 조회
     for user in user_db:
         if user.email == email:

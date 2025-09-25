@@ -89,11 +89,17 @@ def get_user_from_token(authorization: str) -> User:
 # 세션 검증 (세션)
 def verify_session(sid: str) -> int:
     if sid not in session_db:
+        print("Session not found in DB")  # 디버깅용
         raise InvalidSession()
     
     user_id, expiry_time = session_db[sid]
+    current_time = datetime.now(timezone.utc)
 
-    if expiry_time.timestamp() < datetime.now(datetime.timezone.utc).timestamp():
+    print(f"Expiry time: {expiry_time}")  # 디버깅용
+    print(f"Current time: {current_time}")  # 디버깅용
+
+    if expiry_time < current_time:
+        print("Session expired")  # 디버깅용
         session_db.pop(sid)
         raise InvalidSession()
     return int(user_id)
