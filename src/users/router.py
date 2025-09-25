@@ -103,10 +103,12 @@ def get_user_info(
     authorization: Optional[str] = Header(None),
     sid: Optional[str] = Cookie(None)
 ) -> UserResponse:
-    if not authorization and not sid:
+    if sid:
+        user = get_user_from_session(sid)
+    elif authorization:
+        user = get_user_from_token(authorization)
+    else:
         raise UnauthenticatedExeption()
-        
-    user = get_user_from_token(authorization) if authorization else get_user_from_session(sid)
     
     return UserResponse(
         user_id=user.user_id,
