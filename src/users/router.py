@@ -83,7 +83,7 @@ def get_user_from_token(authorization: str) -> User:
         raise InvalidToken()
     return user
 
-def get_user_from_session(sid: str) -> UserResponse:
+def get_user_from_session(sid: str) -> User:
     if sid not in session_db:
         raise InvalidSession()
     
