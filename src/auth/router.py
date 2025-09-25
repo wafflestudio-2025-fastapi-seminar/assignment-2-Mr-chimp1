@@ -154,18 +154,16 @@ def session_login(response: Response, form_data: SessionData):
     response.set_cookie(
         key="sid",
         value=session_id,
-        max_age=LONG_SESSION_LIFESPAN * 60, 
-        httponly=True,
-        samesite="lax"
+        max_age=LONG_SESSION_LIFESPAN * 60
     )
     
-    return None
+    return 
 
 @auth_router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)
-def delete_session(response: Response, sid: Optional[str] = Cookie(None)):
+def delete_session(response: Response, mycookie: Optional[str] = Cookie(None)):
     response.delete_cookie(key="sid")
-    
-    if sid and sid in session_db:
-        session_db.pop(sid)
-    
-    return None
+
+    if mycookie.sid and mycookie.sid in session_db:
+        session_db.pop(mycookie.sid)
+
+    return

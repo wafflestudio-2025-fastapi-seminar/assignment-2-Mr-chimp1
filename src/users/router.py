@@ -96,21 +96,13 @@ def get_user_from_session(sid: str) -> UserResponse:
     user = get_user_by_id(user_id)
     if not user:
         raise InvalidSession()
-    return UserResponse(
-        user_id=user.user_id,
-        email=user.email,
-        hashed_password=user.hashed_password,
-        name=user.name,
-        phone_number=user.phone_number,
-        height=user.height,
-        bio=user.bio
-    )
+    return user
 
-@user_router.get("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@user_router.get("/me", status_code=status.HTTP_200_OK)
 def get_user_info(
     authorization: Optional[str] = Header(None),
     sid: Optional[str] = Cookie(None)
-):
+) -> UserResponse:
     if not authorization and not sid:
         raise UnauthenticatedExeption()
         
