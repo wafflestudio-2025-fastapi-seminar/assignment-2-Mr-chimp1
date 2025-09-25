@@ -160,10 +160,10 @@ def session_login(response: Response, form_data: SessionData):
     return 
 
 @auth_router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)
-def delete_session(response: Response, mycookie: Optional[str] = Cookie(None)):
+def delete_session(response: Response, sid: Optional[str] = Cookie(None)):
     response.delete_cookie(key="sid")
 
-    if mycookie.sid and mycookie.sid in session_db:
-        session_db.pop(mycookie.sid)
+    if sid and sid in session_db:
+        session_db.pop(sid)
 
     return
