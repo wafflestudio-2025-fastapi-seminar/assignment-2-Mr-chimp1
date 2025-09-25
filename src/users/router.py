@@ -48,13 +48,15 @@ def create_user(request: CreateUserRequest) -> UserResponse:
         bio=user.bio)
 
 
-
+# user id로 user 조회 (공통)
 def get_user_by_id(user_id: int) -> User | None:
     for user in user_db:
         if user.user_id == user_id:
             return user
     return None
 
+#### 토큰 ####
+# token 검증 (토큰)
 def verify_token(token: str) -> int:
     if token in blocked_token_db:
         raise InvalidToken()
@@ -69,7 +71,8 @@ def verify_token(token: str) -> int:
         raise InvalidToken()
     except jwt.InvalidTokenError:
         raise InvalidToken()
-
+    
+# token으로 user 조회 (토큰)
 def get_user_from_token(authorization: str) -> User:
     if not authorization:
         raise UnauthenticatedExeption()
@@ -82,31 +85,44 @@ def get_user_from_token(authorization: str) -> User:
     if not user:
         raise InvalidToken()
     return user
-
-def get_user_from_session(sid: str) -> User:
+#### 세션 ####
+# 세션 검증 (세션)
+def verify_session(sid: str) -> int:
     if sid not in session_db:
         raise InvalidSession()
     
     user_id, expiry_time = session_db[sid]
 
-    if expiry_time < datetime.now(datetime.timezone.utc).timestamp():
+    if expiry_time.timestamp() < datetime.now(datetime.timezone.utc).timestamp():
         session_db.pop(sid)
         raise InvalidSession()
-    
+    return int(user_id)
+
+# sid로 user 조회 (세션)
+def get_user_from_session(sid: str) -> User:
+    user_id = verify_session(sid)
     user = get_user_by_id(user_id)
     if not user:
         raise InvalidSession()
     return user
 
+#정보 조회  
 @user_router.get("/me", status_code=status.HTTP_200_OK)
 def get_user_info(
     authorization: Optional[str] = Header(None),
     sid: Optional[str] = Cookie(None)
 ) -> UserResponse:
+    
+    print(f"Session ID: {sid}")  # 디버깅용
+    print(f"Session DB: {session_db}")  # 디버깅용
+    # 세션 검사
     if sid:
         user = get_user_from_session(sid)
+    
+    # 토큰 검사
     elif authorization:
         user = get_user_from_token(authorization)
+    # 둘 다 없는 경우
     else:
         raise UnauthenticatedExeption()
     
